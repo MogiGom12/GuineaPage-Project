@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>뭐든지 쓰다듬기</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #111;
+      font-family: Arial, sans-serif;
+      cursor: none;
+    }
+
+    body {
+      position: relative;
+    }
+
+    .stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #111;
+    }
+
+    .photo-wrap {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .guinea {
+      max-width: min(96vw, 1600px);
+      max-height: 92vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      pointer-events: none;
+      transform: translate(0px, 0px) scale(1);
+      transform-origin: center center;
+      transition:
+        filter 0.12s ease,
+        opacity 0.2s ease,
+        transform 0.12s ease;
+      will-change: filter, opacity, transform;
+    }
+
+    .guinea.dragging {
+      transition: filter 0.12s ease, opacity 0.2s ease;
+    }
+
+    .guinea.petting {
+      filter: brightness(1.03) saturate(1.08);
+    }
+
+    .hand {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: clamp(80px, 10vw, 150px);
+      height: clamp(80px, 10vw, 150px);
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-34%, -18%) rotate(8deg) scale(1);
+      transform-origin: 35% 30%;
+      will-change: transform, left, top;
+    }
+
+    .hand img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      filter: drop-shadow(0 5px 10px rgba(0,0,0,0.35));
+    }
+
+    .hand.press {
+      transform: translate(-34%, -10%) rotate(18deg) scale(0.94);
+    }
+
+    .hand.petting-left {
+      transform: translate(-34%, -10%) rotate(22deg) scale(0.92);
+    }
+
+    .hand.petting-right {
+      transform: translate(-34%, -10%) rotate(10deg) scale(0.92);
+    }
+
+    .hearts-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 30;
+      overflow: hidden;
+    }
+
+    .heart {
+      position: fixed;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+      line-height: 1;
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.8);
+      animation: heartFloat 900ms ease-out forwards;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.18));
+      will-change: transform, opacity;
+    }
+
+    @keyframes heartFloat {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) translateY(10px) scale(0.6);
+      }
+      15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) translateY(0px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) translateY(-45px) scale(1.15);
+      }
+    }
+
+    .ui {
+      position: fixed;
+      left: 50%;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 40;
+
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+
+      max-width: calc(100vw - 16px);
+      overflow-x: auto;
+      overflow-y: hidden;
+
+      pointer-events: auto;
+      padding: 0;
+      scrollbar-width: none;
+    }
+
+    .ui::-webkit-scrollbar {
+      display: none;
+    }
+
+    .controls {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.56);
+      color: #fff;
+      border-radius: 12px;
+      padding: 6px 10px;
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: nowrap;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 6px 9px;
+      background: #fff;
+      color: #111;
+      font-size: 12px;
+      cursor: pointer;
+      transition: transform 0.08s ease, opacity 0.12s ease;
+      flex: 0 0 auto;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .counter {
+      min-width: 48px;
+      text-align: center;
+      font-size: 12px;
+      color: #fff;
+      flex: 0 0 auto;
+    }
+
+    .control-group,
+    .switch-wrap,
+    .jump-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #fff;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    .range-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .range-wrap input[type="range"] {
+      width: 96px;
+      cursor: pointer;
+    }
+
+    .range-value {
+      min-width: 42px;
+      text-align: right;
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      display: inline-block;
+      flex: 0 0 auto;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .switch-slider {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.28);
+      border-radius: 999px;
+      transition: background 0.15s ease;
+      cursor: pointer;
+    }
+
+    .switch-slider::before {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.15s ease;
+    }
+
+    .switch input:checked + .switch-slider {
+      background: #6fdc8c;
+    }
+
+    .switch input:checked + .switch-slider::before {
+      transform: translateX(18px);
+    }
+
+    .jump-input {
+      width: 54px;
+      height: 28px;
+      padding: 4px 6px;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      font-size: 12px;
+      text-align: center;
+      background: rgba(255,255,255,0.95);
+      color: #111;
+    }
+
+    .jump-total {
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div id="photoWrap" class="photo-wrap">
+      <img id="guinea" class="guinea" src="" alt="기니피그" draggable="false" />
+    </div>
+  </div>
+
+  <div id="heartsLayer" class="hearts-layer"></div>
+
+  <div id="hand" class="hand">
+    <img src="hand.png" alt="손 커서" draggable="false" />
+  </div>
+
+  <div class="ui">
+    <div class="controls">
+      <button id="prevBtn" type="button">‹</button>
+      <div id="counter" class="counter">1 / 1</div>
+      <button id="nextBtn" type="button">›</button>
+
+      <div class="switch-wrap">
+        <span>하트모드</span>
+        <label class="switch" aria-label="하트모드 토글">
+          <input id="heartToggle" type="checkbox" checked />
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <div class="control-group">
+        <span>사진</span>
+        <div class="range-wrap">
+          <input id="photoSize" type="range" min="70" max="220" value="100" step="5" />
+          <span id="photoSizeValue" class="range-value">100%</span>
+        </div>
+      </div>
+
+      <div class="jump-wrap">
+        <span>이동</span>
+        <input id="jumpInput" class="jump-input" type="number" min="1" value="1" />
+        <span id="jumpTotal" class="jump-total">/ 1</span>
+        <button id="jumpBtn" type="button">가기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const images = [
+      "example_guineapig1.jpg",
+      "example_guineapig2.jpg",
+    ];
+
+    const guinea = document.getElementById("guinea");
+    const photoWrap = document.getElementById("photoWrap");
+    const hand = document.getElementById("hand");
+    const counter = document.getElementById("counter");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const heartsLayer = document.getElementById("heartsLayer");
+
+    const heartToggle = document.getElementById("heartToggle");
+    const photoSize = document.getElementById("photoSize");
+    const photoSizeValue = document.getElementById("photoSizeValue");
+
+    const jumpInput = document.getElementById("jumpInput");
+    const jumpTotal = document.getElementById("jumpTotal");
+    const jumpBtn = document.getElementById("jumpBtn");
+
+    let currentIndex = 0;
+
+    let mouseX = window.innerWidth / 2;
+    let mouseY = window.innerHeight / 2;
+    let prevMouseX = mouseX;
+    let prevMouseY = mouseY;
+
+    let isMouseDown = false;
+    let isPanning = false;
+    let panStartMouseX = 0;
+    let panStartMouseY = 0;
+    let panStartX = 0;
+    let panStartY = 0;
+
+    let petInterval = null;
+    let wobbleDir = false;
+    let petPower = 0;
+    let lastHeartAt = 0;
+    let heartModeEnabled = true;
+
+    let photoScale = 1;
+    let panX = 0;
+    let panY = 0;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function updateCounter() {
+      counter.textContent = `${currentIndex + 1} / ${images.length}`;
+      jumpInput.value = currentIndex + 1;
+      jumpInput.max = images.length;
+      jumpTotal.textContent = `/ ${images.length}`;
+    }
+
+    function getDisplayedBaseSize() {
+      const wrapRect = photoWrap.getBoundingClientRect();
+
+      if (!guinea.naturalWidth || !guinea.naturalHeight) {
+        return { width: 0, height: 0, wrapWidth: wrapRect.width, wrapHeight: wrapRect.height };
+      }
+
+      const maxWidth = Math.min(wrapRect.width * 0.96, 1600);
+      const maxHeight = wrapRect.height * 0.92;
+      const imageRatio = guinea.naturalWidth / guinea.naturalHeight;
+
+      let width = maxWidth;
+      let height = width / imageRatio;
+
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = height * imageRatio;
+      }
+
+      return {
+        width,
+        height,
+        wrapWidth: wrapRect.width,
+        wrapHeight: wrapRect.height
+      };
+    }
+
+    function clampPan() {
+      const { width, height, wrapWidth, wrapHeight } = getDisplayedBaseSize();
+
+      const scaledWidth = width * photoScale;
+      const scaledHeight = height * photoScale;
+
+      const maxPanX = Math.max((scaledWidth - wrapWidth) / 2, 0);
+      const maxPanY = Math.max((scaledHeight - wrapHeight) / 2, 0);
+
+      panX = clamp(panX, -maxPanX, maxPanX);
+      panY = clamp(panY, -maxPanY, maxPanY);
+    }
+
+    function applyPhotoTransform() {
+      clampPan();
+      guinea.style.transform = `translate(${panX}px, ${panY}px) scale(${photoScale})`;
+    }
+
+    function resetPan() {
+      panX = 0;
+      panY = 0;
+      applyPhotoTransform();
+    }
+
+    function clearPetEffects() {
+      clearInterval(petInterval);
+      petInterval = null;
+
+      hand.classList.remove("press", "petting-left", "petting-right");
+      guinea.classList.remove("petting");
+      petPower = 0;
+    }
+
+    function setScaleFromPercent(percent) {
+      const clampedPercent = clamp(Number(percent), 70, 220);
+      photoScale = clampedPercent / 100;
+      photoSize.value = clampedPercent;
+      photoSizeValue.textContent = `${clampedPercent}%`;
+
+      if (photoScale <= 1) {
+        panX = 0;
+        panY = 0;
+      }
+
+      applyPhotoTransform();
+    }
+
+    function zoomAtPoint(newScale, clientX, clientY) {
+      const wrapRect = photoWrap.getBoundingClientRect();
+      const wrapCenterX = wrapRect.left + wrapRect.width / 2;
+      const wrapCenterY = wrapRect.top + wrapRect.height / 2;
+
+      const localX = (clientX - wrapCenterX - panX) / photoScale;
+      const localY = (clientY - wrapCenterY - panY) / photoScale;
+
+      photoScale = newScale;
+
+      panX = clientX - wrapCenterX - localX * photoScale;
+      panY = clientY - wrapCenterY - localY * photoScale;
+
+      if (photoScale <= 1) {
+        panX = 0;
+        panY = 0;
+      }
+
+      const percent = Math.round(photoScale * 100);
+      photoSize.value = percent;
+      photoSizeValue.textContent = `${percent}%`;
+
+      applyPhotoTransform();
+    }
+
+    function showImage(index) {
+      currentIndex = (index + images.length) % images.length;
+      guinea.style.opacity = "0.2";
+
+      guinea.onload = () => {
+        updateCounter();
+        requestAnimationFrame(() => {
+          guinea.style.opacity = "1";
+          resetPan();
+        });
+      };
+
+      guinea.onerror = () => {
+        guinea.alt = `이미지를 불러올 수 없습니다: ${images[currentIndex]}`;
+        guinea.style.opacity = "1";
+        updateCounter();
+        resetPan();
+      };
+
+      guinea.src = images[currentIndex];
+    }
+
+    function nextImage() {
+      stopPetAnimation();
+      stopPanMode();
+      showImage(currentIndex + 1);
+    }
+
+    function prevImage() {
+      stopPetAnimation();
+      stopPanMode();
+      showImage(currentIndex - 1);
+    }
+
+    function jumpToImage() {
+      const value = Number(jumpInput.value);
+      if (!Number.isInteger(value)) return;
+      if (value < 1 || value > images.length) return;
+
+      stopPetAnimation();
+      stopPanMode();
+      showImage(value - 1);
+    }
+
+    function moveHand(x, y) {
+      hand.style.left = x + "px";
+      hand.style.top = y + "px";
+    }
+
+    function startPetAnimation() {
+      if (!heartModeEnabled) return;
+      if (petInterval || isPanning) return;
+
+      guinea.classList.add("petting");
+      hand.classList.add("press");
+
+      petInterval = setInterval(() => {
+        wobbleDir = !wobbleDir;
+        hand.classList.remove("petting-left", "petting-right");
+        hand.classList.add(wobbleDir ? "petting-left" : "petting-right");
+      }, 85);
+    }
+
+    function stopPetAnimation() {
+      clearPetEffects();
+      isMouseDown = false;
+    }
+
+    function setHoverPetState(active) {
+      if (!heartModeEnabled) {
+        clearPetEffects();
+        return;
+      }
+
+      if (isMouseDown || petInterval || isPanning) return;
+
+      guinea.classList.toggle("petting", active);
+      hand.classList.toggle("press", active);
+    }
+
+    function isInsideGuinea(x, y) {
+      const rect = guinea.getBoundingClientRect();
+      return (
+        x >= rect.left &&
+        x <= rect.right &&
+        y >= rect.top &&
+        y <= rect.bottom
+      );
+    }
+
+    function canPanPhoto() {
+      return photoScale > 1.001;
+    }
+
+    function startPanMode(clientX, clientY) {
+      isPanning = true;
+      panStartMouseX = clientX;
+      panStartMouseY = clientY;
+      panStartX = panX;
+      panStartY = panY;
+      guinea.classList.add("dragging");
+      clearPetEffects();
+    }
+
+    function stopPanMode() {
+      isPanning = false;
+      guinea.classList.remove("dragging");
+    }
+
+    function spawnHeart() {
+      const rect = guinea.getBoundingClientRect();
+      if (rect.width < 40 || rect.height < 40) return;
+
+      const now = Date.now();
+      if (now - lastHeartAt < 80) return;
+      lastHeartAt = now;
+
+      const heart = document.createElement("div");
+      heart.className = "heart";
+
+      const symbols = ["❤", "♥", "💗", "💖"];
+      const symbol = symbols[Math.floor(Math.random() * symbols.length)];
+
+      const x = rect.left + rect.width * (0.12 + Math.random() * 0.76);
+      const y = rect.top + rect.height * (0.12 + Math.random() * 0.76);
+      const size = 18 + Math.random() * 34;
+      const rotate = -20 + Math.random() * 40;
+
+      heart.textContent = symbol;
+      heart.style.left = `${x}px`;
+      heart.style.top = `${y}px`;
+      heart.style.fontSize = `${size}px`;
+      heart.style.transform = `translate(-50%, -50%) rotate(${rotate}deg)`;
+      heart.style.animationDuration = `${750 + Math.random() * 450}ms`;
+
+      heartsLayer.appendChild(heart);
+
+      setTimeout(() => {
+        heart.remove();
+      }, 1300);
+    }
+
+    function tryMakeHearts(distanceMoved) {
+      if (!heartModeEnabled) return;
+      if (isPanning) return;
+      if (!isInsideGuinea(mouseX, mouseY)) return;
+      if (distanceMoved <= 0) return;
+
+      petPower += distanceMoved;
+
+      while (petPower >= 120) {
+        spawnHeart();
+        petPower -= 120;
+      }
+    }
+
+    heartToggle.addEventListener("change", () => {
+      heartModeEnabled = heartToggle.checked;
+
+      if (!heartModeEnabled) {
+        clearPetEffects();
+      }
+    });
+
+    photoSize.addEventListener("input", (e) => {
+      setScaleFromPercent(e.target.value);
+    });
+
+    jumpBtn.addEventListener("click", jumpToImage);
+    jumpInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") jumpToImage();
+    });
+
+    prevBtn.addEventListener("click", prevImage);
+    nextBtn.addEventListener("click", nextImage);
+
+    photoWrap.addEventListener("wheel", (e) => {
+      if (!isInsideGuinea(e.clientX, e.clientY)) return;
+
+      e.preventDefault();
+
+      const delta = e.deltaY < 0 ? 10 : -10;
+      const currentPercent = Math.round(photoScale * 100);
+      const nextPercent = clamp(currentPercent + delta, 70, 220);
+      const nextScale = nextPercent / 100;
+
+      if (nextScale === photoScale) return;
+      zoomAtPoint(nextScale, e.clientX, e.clientY);
+    }, { passive: false });
+
+    window.addEventListener("mousemove", (e) => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+      moveHand(mouseX, mouseY);
+
+      const dx = mouseX - prevMouseX;
+      const dy = mouseY - prevMouseY;
+      const distanceMoved = Math.sqrt(dx * dx + dy * dy);
+      const inside = isInsideGuinea(mouseX, mouseY);
+
+      if (isPanning) {
+        panX = panStartX + (mouseX - panStartMouseX);
+        panY = panStartY + (mouseY - panStartMouseY);
+        applyPhotoTransform();
+
+        prevMouseX = mouseX;
+        prevMouseY = mouseY;
+        return;
+      }
+
+      if (inside) {
+        if (isMouseDown && !canPanPhoto()) {
+          if (!petInterval) startPetAnimation();
+        } else if (!isMouseDown) {
+          setHoverPetState(true);
+        }
+
+        tryMakeHearts(distanceMoved);
+      } else {
+        if (isMouseDown || petInterval) {
+          stopPetAnimation();
+        } else {
+          setHoverPetState(false);
+        }
+        petPower = 0;
+      }
+
+      prevMouseX = mouseX;
+      prevMouseY = mouseY;
+    });
+
+    window.addEventListener("mousedown", (e) => {
+      if (!isInsideGuinea(mouseX, mouseY)) return;
+
+      if (canPanPhoto()) {
+        startPanMode(e.clientX, e.clientY);
+        return;
+      }
+
+      isMouseDown = true;
+      startPetAnimation();
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isPanning) {
+        stopPanMode();
+        if (isInsideGuinea(mouseX, mouseY)) {
+          setHoverPetState(true);
+        }
+        return;
+      }
+
+      if (isMouseDown) {
+        isMouseDown = false;
+
+        if (isInsideGuinea(mouseX, mouseY)) {
+          if (heartModeEnabled) {
+            hand.classList.remove("petting-left", "petting-right");
+            guinea.classList.remove("petting");
+            hand.classList.add("press");
+            guinea.classList.add("petting");
+          } else {
+            clearPetEffects();
+          }
+        } else {
+          stopPetAnimation();
+          setHoverPetState(false);
+        }
+      }
+    });
+
+    window.addEventListener("mouseleave", () => {
+      stopPanMode();
+      stopPetAnimation();
+      setHoverPetState(false);
+    });
+
+    window.addEventListener("resize", () => {
+      applyPhotoTransform();
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") nextImage();
+      if (e.key === "ArrowLeft") prevImage();
+      if (e.key === "Escape") {
+        stopPanMode();
+        stopPetAnimation();
+        setHoverPetState(false);
+      }
+    });
+
+    moveHand(mouseX, mouseY);
+    heartToggle.checked = true;
+    heartModeEnabled = true;
+    setScaleFromPercent(photoSize.value);
+    updateCounter();
+    showImage(0);
+  </script>
+</body>
+</html>
